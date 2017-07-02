@@ -69,4 +69,7 @@ CORPORA_TO_EVAL = (
 EMB_BIGFILE        = MODELPATH + MODELFN
 EMB_FILTERED_TERMS = MODELPATH + MODELFN + "-Desc." + str(USE_DESCR_IN_PROP_VECTORS) +"__filtered.for.wikidata.properties.vec"
 EMB_PROP_LABELS    = MODELPATH + MODELFN + "-Desc." + str(USE_DESCR_IN_PROP_VECTORS) + "__property-id-only.vec"
-EMB_OUR_MODEL      = MODELPATH + MODELFN + "-Desc." + str(USE_DESCR_IN_PROP_VECTORS) + "__w-prop-ids.FINAL.vec"
+if 'MODEL_FILE' in os.environ:
+    EMB_OUR_MODEL = os.environ['MODEL_FILE']
+else:
+    EMB_OUR_MODEL  = MODELPATH + MODELFN + "-Desc." + str(USE_DESCR_IN_PROP_VECTORS) + "__w-prop-ids.FINAL.vec"

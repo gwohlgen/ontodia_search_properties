@@ -21,15 +21,17 @@ To set application port, different from 8888, run script with env variable PORT:
 env PORT=8889 python ./web_service.py
 ```
 
-To set arbitrary path to `models` dir, that contains trained models, run script with env variable ONTODIA_SEARCH_PROPERTIES_BASEPATH:
+To set arbitrary path to model file, run script with env variable MODEL_FILE:
 
 ```bash
-env ONTODIA_SEARCH_PROPERTIES_BASEPATH=./ python ./web_service.py
+env MODEL_FILE=./models/fasttext.wiki.en.vec.small.300000.lines-Desc.True__w-prop-ids.FINAL.vec python ./web_service.py
 ```
 
 ### HTTP API reference
 Path: /
+
 Method: POST
+
 Body:
 ```js
 {

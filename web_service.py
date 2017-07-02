@@ -12,15 +12,12 @@ import helpers, config
 
 model = []
 plist = []
-properties = []
 
 def inititalize_get_similar_properties():
     global model
     global plist
-    global properties
     model, plist = helpers.load_model_and_plist()
-    properties = helpers.get_properties_by_id(config.PROPS_FILE)
-    return model, plist, properties
+    return model, plist
 
 
 def to_json(tuple):
@@ -46,10 +43,10 @@ class MainHandler(APIHandler):
         },
     )
     def post(self):
-        global model, plist, properties
+        global model, plist
         attrs = dict(self.body)
 
-        closest_propserties = helpers.get_closest_properties(attrs['term'], model, attrs['instance_properties'], plist, properties) 
+        closest_propserties = helpers.get_closest_properties(attrs['term'], model, attrs['instance_properties'], plist, []) 
         
         if 'threshold' in attrs:
             closest_propserties = filter(lambda x: x[1] >= attrs['threshold'], closest_propserties)
