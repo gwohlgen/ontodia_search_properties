@@ -1,8 +1,12 @@
+import os
 
 #### edit here for new installation or basic conf for usage as service ####
 
 # the path to the installation of the service / tool
-BASEPATH="/home/ontology/itmo/ontodia_search/"
+if 'ONTODIA_SEARCH_PROPERTIES_BASEPATH' in os.environ:
+    BASEPATH=os.environ['ONTODIA_SEARCH_PROPERTIES_BASEPATH']
+else:
+    BASEPATH="/home/ontology/itmo/ontodia_search/"
 
 # the maximum number of properties that will be suggested by the service
 NUM_SUGG_PROPS = 20 

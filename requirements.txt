@@ -1,0 +1,5 @@
+tornado
+numpy
+Tornado-JSON
+nltk
+gensim

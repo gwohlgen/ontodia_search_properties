@@ -1,2 +1,3 @@
 *.pyc
 evaluation/eval_res.*
+./models/fasttext.wiki.en.vec.small.300000.lines-Desc.True__w-prop-ids.FINAL.vec

@@ -1,13 +1,13 @@
 import sys, json, codecs, subprocess, string
 import numpy as np
 import config
+import nltk
 from nltk.corpus import stopwords
 from gensim.models import KeyedVectors
 from operator import itemgetter
 
-
+nltk.download('stopwords')
 stop = set(stopwords.words('english'))
-
 
 def get_properties_by_id(props_file):
     """
