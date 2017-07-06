@@ -19,6 +19,7 @@ alias_label_map = helpers.create_alias_label_map(properties, skip_ids=False) # h
 json.dump(alias_label_map, open(config.P_ALIAS_MAP,"wb"))
 
 
+sys.exit()
 
 ### ------------ Step 2
 

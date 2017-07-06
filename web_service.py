@@ -1,6 +1,4 @@
-import sys, os
-
-import json
+import sys, os, json
 import tornado.ioloop
 import tornado.web
 from tornado_json.routes import get_routes
@@ -12,12 +10,20 @@ import helpers, config
 
 model = []
 plist = []
+property_aliases = {}
+
 
 def inititalize_get_similar_properties():
     global model
     global plist
+    global property_aliases
+
     model, plist = helpers.load_model_and_plist()
-    return model, plist
+
+    properties = helpers.get_properties_by_id(config.PROPS_FILE)
+    property_aliases = create_property_aliases(properties)
+
+    return model, plist, property_aliases 
 
 
 def to_json(tuple):
@@ -43,10 +49,10 @@ class MainHandler(APIHandler):
         },
     )
     def post(self):
-        global model, plist
+        global model, plist, property_aliases 
         attrs = dict(self.body)
 
-        closest_propserties = helpers.get_closest_properties(attrs['term'], model, attrs['instance_properties'], plist, []) 
+        closest_propserties = helpers.get_closest_properties(attrs['term'], model, attrs['instance_properties'], plist, [], add_alias_terms_to_result=True, property_aliases=property_aliases) 
         
         if 'threshold' in attrs:
             closest_propserties = filter(lambda x: x[1] >= attrs['threshold'], closest_propserties)

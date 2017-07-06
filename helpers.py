@@ -62,15 +62,40 @@ def create_alias_label_map(properties, skip_ids=False, lower=True):
                 alias = alias.lower()
 
             if alias_label_map.has_key(alias):
-                alias_label_map[alias].append(pvals['label'])
+                alias_label_map[alias].append( (pvals['label'], propid) )
             else:
-                alias_label_map[alias] = [ pvals['label'] ]
+                alias_label_map[alias] = [ (pvals['label'], propid) ]
 
             # tmp!!
-            if alias == alias_label_map[alias][0]:
+            if alias == alias_label_map[alias][0][0]:
                 print "INFO: alias == label", alias, alias_label_map[alias], "... looks like this is a \"bug\" in WikiData."
 
     return alias_label_map
+
+
+def create_property_aliases(properties, skip_ids=False, lower=True):
+    """
+        similar to create_alias_label_map .. but here we look for a mapping "PROP_ID" --> list of aliases
+    """
+    property_aliases = {}
+    for propid, pvals in properties.iteritems():
+
+        if skip_ids: # skip properties with "ID" in their label (as they might be not important for the user)
+            if pvals['label'].find("ID") >= 0 or pvals['label'].find(" id") >= 0:
+                continue
+
+        aliases = pvals['aliases']
+        if lower: # make aliases lowercase?
+            aliases = [alias.lower() for alias in aliases] 
+
+        if aliases:
+            property_aliases[propid] = aliases
+
+    return property_aliases
+
+
+
+
 
 def get_all_property_label_unigrams(properties):
     # create a list of words from all our property labels
@@ -214,23 +239,26 @@ def load_model_and_plist():
 
 
 # find all property ids:
-def get_closest_properties(term, model, instance_properties, w2v_plist, properties, debug_lookup=False, num_sugg=config.NUM_SUGG_PROPS):
+def get_closest_properties(term, model, instance_properties, w2v_plist, properties, lower=True, debug_lookup=False, num_sugg=config.NUM_SUGG_PROPS, add_alias_terms_to_result=False, property_aliases=None):
     """ @param term: a term from the user (term), the instances of the respective entity (instance_properties)
                term should be unicode (preferred) or utf-8 string
         @param w2v_plist: the list of properties in the model (w2v_plist), our properties dict
         @param instance_properties: a list of properities for the instance -- if left empty then we match against ALL properties
                instance_properties can be a list of strings or list of unicode -- both works
-        @param properities: just for debugging, now needed in the production version 
+        @param properties: just for debugging, not needed in the production version 
+        @param add_alias_terms_to_result: additionally to the word embedding-based results, also matches in the aliases (Wikidata: also known as) into the matches
+        @param property_aliases: mapping of properties to list of its aliases, needed when add_alias_terms_to_result == True
 
         returns: the properties most similar to the input term
     """
-    print "New input term", term
-
     sims, words = [], []
 
     # the term should be unicode, if not, try to decode it (assuming it is utf-8)
     if type(term) == type(""):
         term = term.decode("utf-8")
+
+    if lower:
+        term = term.lower()
 
 
     # check if we find the words(s) in the model
@@ -241,10 +269,18 @@ def get_closest_properties(term, model, instance_properties, w2v_plist, properti
         if model.vocab.has_key(word) and word not in stop:
             words.append(word)
 
-    print "INFO: words used from input phrase (%s): %s" % (term, str(words))
+    try:
+        print "INFO: words used from input phrase (%s): %s" % ( term.encode("utf-8"), str([w.encode("utf-8") for w in words]) )
+    except:
+        print "encoding error on input term"
+
+    alias_sims = []
+    if add_alias_terms_to_result:
+        alias_sims = match_in_aliases(term, instance_properties, property_aliases)
+
     if len(words) == 0:
-        print "WARN: Term -- %s -- (or it's parts) not found in the model!. We have no suggestions!" % (term,)
-        return None
+        print "WARN: Term -- %s -- (or it's parts) not found in the model!. We have no suggestions from word embeddings!" % (term.encode("utf-8"),)
+        return alias_sims 
 
     if instance_properties:
         # only check for given instance_properties
@@ -267,7 +303,38 @@ def get_closest_properties(term, model, instance_properties, w2v_plist, properti
     if debug_lookup:
         for i in sorted_sims[:num_sugg]:
             print "\t", properties[i[0]]['label'], i[1]
-    return sorted_sims[:num_sugg]
+
+
+    return alias_sims + sorted_sims[:num_sugg]
+
+def match_in_aliases(term, instance_properties, property_aliases):
+    """
+        -- for all parameters see in the outer function: get_closest_properties
+        @param term 
+        @param instance_properties
+        @param property_aliases
+
+        here we look for matches of user input "term" in the aliases of 
+        instance properties. if a match is found, we add the instance property to the result set
+    """
+
+    ## list of matches in alias strings of the properties
+    alias_sims = []
+
+    
+    for ip in instance_properties:
+        if property_aliases.has_key(ip): 
+            aliases = property_aliases[ip]
+            found = False
+            for alias in aliases: 
+                if alias.find(term)>=0:
+                    #print alias
+                    found = True 
+            if found: 
+                alias_sims.append( (ip,1.0) )
+                
+    return alias_sims
+
 
 
 def pprint_closest_properties(term, close_props, properties):
@@ -299,6 +366,8 @@ if __name__ == "__main__":
 
     from config import PROPS_FILE
     properties = get_properties_by_id(PROPS_FILE)
+    property_aliases = create_property_aliases(properties)
+
     print "Number of properties:", len( properties ) 
 
     num_alias_all      = len(create_alias_label_map(properties, skip_ids=False))

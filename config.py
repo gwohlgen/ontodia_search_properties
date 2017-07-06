@@ -6,7 +6,7 @@ import os
 if 'ONTODIA_SEARCH_PROPERTIES_BASEPATH' in os.environ:
     BASEPATH=os.environ['ONTODIA_SEARCH_PROPERTIES_BASEPATH']
 else:
-    BASEPATH="/home/ontology/itmo/ontodia_search/"
+    BASEPATH="/home/ontology/itmo/ontodia_search_properties/"
 
 # the maximum number of properties that will be suggested by the service
 NUM_SUGG_PROPS = 20 
@@ -63,6 +63,8 @@ CORPORA_TO_EVAL = (
     "glove.6B.300d.txt",
     "fasttext.wiki.en.vec"
 )
+
+PICKLED_ENTITIES="/home/ontology/itmo/parse_dump/863af69690fb44eb22a4/entities.pickle"
  
 
 #### word embedding configs
