@@ -9,11 +9,11 @@ def get_metrics(eval_data, debug=False):
 
     for alias, vals in eval_data.iteritems():
 
-        label, close_props = vals
+        label_data, close_props = vals
    
         # step 1 .. find rank 
-        rank = get_rank(label, close_props, debug)
-        if debug: print "alias (%s),\t label (%s),\t rank: %s" % (alias, label, rank)
+        rank = get_rank(label_data, close_props, debug)
+        if debug: print "alias (%s),\t label_data (%s),\t rank: %s" % (alias, label_data, rank)
 
         all_ranks.append(rank)
 
@@ -29,12 +29,13 @@ def get_metrics(eval_data, debug=False):
     eval_res['top50'] = perc_top_n(all_ranks, 50)
     return eval_res
 
-def get_rank(labels, close_props, debug=False):
+def get_rank(label_data, close_props, debug=False):
     """
-        label .. list of strings (the real gold standard labels)
+        label_data .. list of strings and propids (the real gold standard labels)
         close_props .. [(u'P434', 0.3667969984041744), (u'P373', 0.36222223691644562), ... ]       
     """ 
     properties = helpers.get_properties_by_id(config.PROPS_FILE)
+    labels = [l[0] for l in label_data]
 
     default_rank = 150 # default if nothing found 
     n = 1

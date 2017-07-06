@@ -21,15 +21,15 @@ def do_evaluation(skip_ids=False, skip_where_alias_same_as_label=False):
 
 
     print "\n\n############### (2) .. compute similarity of aliases with word embeddings ################################"
-    for alias, label in alias_labels_map.iteritems():
+    for alias, label_data in alias_labels_map.iteritems():
 
         # format: alias is a string, label is a list of strings
         close_props = helpers.get_closest_properties(alias, model, [], w2v_plist, properties, debug_lookup=False, num_sugg = 100)
 
         if close_props:
             num_found += 1
-            # helpers.pprint_closest_properties(alias + " -- label: " + str(label), close_props, properties)
-            eval_data[alias] = (label, close_props) 
+            # helpers.pprint_closest_properties(alias + " -- label_data: " + str(label_data), close_props, properties)
+            eval_data[alias] = (label_data, close_props) 
         else:
             num_not_found += 1
             print "Nothing found for alias:", alias
