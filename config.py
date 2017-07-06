@@ -6,10 +6,11 @@ import os
 if 'ONTODIA_SEARCH_PROPERTIES_BASEPATH' in os.environ:
     BASEPATH=os.environ['ONTODIA_SEARCH_PROPERTIES_BASEPATH']
 else:
-    BASEPATH="/home/ontology/itmo/ontodia_search_properties/"
+    # BASEPATH="/home/ontology/itmo/ontodia_search_properties/"
+    BASEPATH="./"
 
 # the maximum number of properties that will be suggested by the service
-NUM_SUGG_PROPS = 20 
+NUM_SUGG_PROPS = 20
 
 
 
@@ -50,7 +51,7 @@ MODELFN = "fasttext.wiki.en.vec.small.300000.lines"; DIMS=300 # Wikipedia, 2016?
 
 # for the evalation of the system quality against the gold standard
 CORPORA_TO_EVAL = (
-    "lexvec.enwiki+newscrawl.300d.W.pos.vectors.all.369000", 
+    "lexvec.enwiki+newscrawl.300d.W.pos.vectors.all.369000",
     "glove.6B.300d.txt.small.10000.lines",
     "glove.6B.100d.txt",
     "lexvec.enwiki+newscrawl.300d.W.pos.vectors.small.10000.lines",
@@ -65,7 +66,7 @@ CORPORA_TO_EVAL = (
 )
 
 PICKLED_ENTITIES="/home/ontology/itmo/parse_dump/863af69690fb44eb22a4/entities.pickle"
- 
+
 
 #### word embedding configs
 EMB_BIGFILE        = MODELPATH + MODELFN
