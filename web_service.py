@@ -21,7 +21,7 @@ def inititalize_get_similar_properties():
     model, plist = helpers.load_model_and_plist()
 
     properties = helpers.get_properties_by_id(config.PROPS_FILE)
-    property_aliases = create_property_aliases(properties)
+    property_aliases = helpers.create_property_aliases(properties)
 
     return model, plist, property_aliases 
 
