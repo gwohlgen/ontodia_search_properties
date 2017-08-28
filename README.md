@@ -53,3 +53,8 @@ Response:
   ]
 }
 ```
+
+# trained models 
+The model based on the fasttext Wikipedia model, which we extended with Wikidata properties
+is found at:
+https://aic.ai.wu.ac.at/~wohlg/ontodia_property_search/
