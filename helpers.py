@@ -1,13 +1,15 @@
-import sys, json, codecs, subprocess, string
+import sys, json, codecs, subprocess, string, pickle, re
 import numpy as np
 import config
 import nltk
 from nltk.corpus import stopwords
 from gensim.models import KeyedVectors
 from operator import itemgetter
+from config import DEBUG
 
 nltk.download('stopwords')
 stop = set(stopwords.words('english'))
+
 
 def get_properties_by_id(props_file):
     """
@@ -45,21 +47,33 @@ def get_properties_by_id(props_file):
 
     return properties
 
+def get_entities_by_id(ent_file):
+    return pickle.load(open(ent_file))
 
-def create_alias_label_map(properties, skip_ids=False, lower=True):
+
+def create_alias_label_map(properties, skip_ids=False, lower=True, skip_nums=False):
     """
         create mapping from "alias" --> "label" for all our wikidata properties
+        @param skip_nums .. skip all labels and aliases that have numbers in them
     """
     alias_label_map = {}
+    print "create_alias_label_map, number of items:", len(properties)
     for propid, pvals in properties.iteritems():
 
         if skip_ids:
             if pvals['label'].find("ID") >= 0 or pvals['label'].find(" id") >= 0:
                 continue
+        if skip_nums:
+            if not pvals['label'].replace(" ","").isalpha():
+                continue
 
         for alias in pvals['aliases']:
             if lower: 
                 alias = alias.lower()
+
+            if skip_nums:
+                if not alias.replace(" ","").isalpha():
+                    continue
 
             if alias_label_map.has_key(alias):
                 alias_label_map[alias].append( (pvals['label'], propid) )
@@ -70,6 +84,7 @@ def create_alias_label_map(properties, skip_ids=False, lower=True):
             if alias == alias_label_map[alias][0][0]:
                 print "INFO: alias == label", alias, alias_label_map[alias], "... looks like this is a \"bug\" in WikiData."
 
+    print "create_alias_label_map, size of alias_label_map:", len(alias_label_map)
     return alias_label_map
 
 
@@ -117,9 +132,14 @@ def line_prepender(filename, line):
 
 
 
-def filter_big_model_label_words(property_words):
+def filter_big_model_label_words(property_words, entities=False):
 
-    ofh = open(config.EMB_FILTERED_TERMS,'wb')
+    if entities:
+        MODEL = config.EMB_FILTERED_TERMS+'entities'
+    else:
+        MODEL = config.EMB_FILTERED_TERMS
+
+    ofh = open(MODEL,'wb')
 
     # open embedding vectors and only keep the ones matching one of the property terms
     numlines = 0
@@ -134,20 +154,28 @@ def filter_big_model_label_words(property_words):
 
     ofh.close()
     print "DONE\nNow adding a metadata line in vectors file (num_terms, num_dimensions)"
-    line_prepender(config.EMB_FILTERED_TERMS, "%s %s" % (numlines, config.DIMS))
+    line_prepender(MODEL, "%s %s" % (numlines, config.DIMS))
 
 
 
-def create_average_property_vectors():
+def create_average_property_vectors(entities=False):
     """
         this creates the representative average vectors for every property and write them
     """
     # load the model of filtered terms  
-    model = KeyedVectors.load_word2vec_format(config.EMB_FILTERED_TERMS) # all lowercase
-    index2word_set = set(model.index2word)
-    ofh = codecs.open(config.EMB_PROP_LABELS,'wb','utf-8')
+    if entities:
+        model = KeyedVectors.load_word2vec_format(config.EMB_FILTERED_TERMS+'entities') # all lowercase
+        ofh = codecs.open(config.EMB_PROP_LABELS+'entities','wb','utf-8')
+        entities = get_entities_by_id(config.PICKLED_ENTITIES)
+        properties = entities 
+    else:
+        model = KeyedVectors.load_word2vec_format(config.EMB_FILTERED_TERMS) # all lowercase
+        ofh = codecs.open(config.EMB_PROP_LABELS,'wb','utf-8')
+        properties = get_properties_by_id(config.PROPS_FILE)
 
-    properties = get_properties_by_id(config.PROPS_FILE)
+    model.init_sims(replace=True)  
+    index2word_set = set(model.index2word)
+
 
     for propid, vals in properties.iteritems():
         
@@ -158,11 +186,14 @@ def create_average_property_vectors():
         nwords = 0.
         for word in vals['label_words']: # all lowercase
             if word in index2word_set: 
-                print "word found:", word, model[word][0:5]
+                if DEBUG: print "word found:", word, model[word][0:5]
                 nwords = nwords + 1.
                 featureVec = np.add(featureVec,model[word])
             else:
-                print "word not found:", word, vals['label']
+                try:
+                    if DEBUG: print "word not found:", word, vals['label']
+                except:
+                    print "word not found"
      
         # Divide the result by the number of words to get the average
         featureVec = np.divide(featureVec,nwords)
@@ -174,46 +205,51 @@ def create_average_property_vectors():
         ofh.write(row)
 
 
-def create_concat_model():
+def create_concat_model(entities=False):
     """
         create the concated model (trained word embeddings + model of Property embeddings
     """
 
-    print "\t a) copy model to final file:", config.EMB_OUR_MODEL
-    subprocess.call(["/bin/cp", config.EMB_BIGFILE, config.EMB_OUR_MODEL])
+    if entities:
+        OUR_MODEL=config.EMB_OUR_ENT_MODEL
+        OUR_LABELS= config.EMB_PROP_LABELS+'entities'
+    else:
+        OUR_MODEL=config.EMB_OUR_MODEL
+        OUR_LABELS= config.EMB_PROP_LABELS
 
-    print "\t b) adding our property vectors from file:", config.EMB_PROP_LABELS
-    subprocess.call("/bin/cat %s >> %s " % (config.EMB_PROP_LABELS,config.EMB_OUR_MODEL), shell=True)
+    print "\t a) copy model to final file:", OUR_MODEL 
+    subprocess.call(["/bin/cp", config.EMB_BIGFILE, OUR_MODEL])
+
+    ## support for entities stops here
+
+    print "\t b) adding our property vectors from file:", OUR_LABELS 
+    subprocess.call("/bin/cat %s >> %s " % (OUR_LABELS, OUR_MODEL), shell=True)
 
     print "\t c) check if we have a metadata line already, if yes delete it"
-    with open(config.EMB_OUR_MODEL) as data_file:
+    with open(OUR_MODEL) as data_file:
         for line in data_file:
             num_ele = len(line.split(" "))
             if num_ele == 2:
-                print "\t\t header found .. need to delete first line from file", config.EMB_OUR_MODEL
-                subprocess.call("/usr/bin/tail -n +2 %s > /tmp/abcd77" % (config.EMB_OUR_MODEL), shell=True)
-                subprocess.call(["/bin/mv", "/tmp/abcd77", config.EMB_OUR_MODEL])
+                print "\t\t header found .. need to delete first line from file", OUR_MODEL
+                subprocess.call("/usr/bin/tail -n +2 %s > /tmp/abcd77" % (OUR_MODEL), shell=True)
+                subprocess.call(["/bin/mv", "/tmp/abcd77", OUR_MODEL])
                 print "CHECK THAT IT WORKED!"
                 #sys.exit()
             else:
                 print "\t\t **** NO header found .. fine ***" 
             break
 
-    print "\t c) count number of lines in file", config.EMB_OUR_MODEL
-    wc_call_out =  subprocess.check_output("/usr/bin/wc %s" % (config.EMB_OUR_MODEL,), stderr=subprocess.STDOUT, shell=True).strip()
+    print "\t c) count number of lines in file", OUR_MODEL 
+    wc_call_out =  subprocess.check_output("/usr/bin/wc %s" % (OUR_MODEL,), stderr=subprocess.STDOUT, shell=True).strip()
     num_lines = wc_call_out.split(" ")[0]
 
-    print "\t d) Finally, prepend a line with (num_lines DIMS) to our model:", config.EMB_OUR_MODEL
-    line_prepender(config.EMB_OUR_MODEL, "%s %s" % (num_lines, config.DIMS))
+    print "\t d) Finally, prepend a line with (num_lines DIMS) to our model:", OUR_MODEL
+    line_prepender(OUR_MODEL, "%s %s" % (num_lines, config.DIMS))
     print "\t DONE"
 
 
 
-   
-
-
-
-def load_model_and_plist():
+def load_model_and_plist(entities=False):
     """
         used in scripts to finally compute the similary vals between terms and WD Properties
 
@@ -221,37 +257,31 @@ def load_model_and_plist():
         and it also returns a list of all available properties in our model
     """
 
-    #model = KeyedVectors.load_word2vec_format(config.EMB_PROP_LABELS)
-    print "Will load the model now:", config.EMB_OUR_MODEL
-    model = KeyedVectors.load_word2vec_format(config.EMB_OUR_MODEL)
+    if entities:
+        MODELFN = config.EMB_OUR_ENT_MODEL
+    else:
+        MODELFN = config.EMB_OUR_MODEL
+        
+    print "Will load the model now:", MODELFN 
+    model = KeyedVectors.load_word2vec_format(MODELFN)
 
     plist = []
-    for i in xrange(0,10000):
-        try:
-            prop = "P"+str(i)
-            model[prop]
-            plist.append(prop)
-        except KeyError:
-            pass
-    print "Done loading the model:", config.EMB_OUR_MODEL
+
+    if not entities:
+        for i in xrange(0,10000):
+            try:
+                prop = "P"+str(i)
+                model[prop]
+                plist.append(prop)
+            except KeyError:
+                pass
+
+    print "Done loading the model:", MODELFN 
     return model, plist
 
 
-
-# find all property ids:
-def get_closest_properties(term, model, instance_properties, w2v_plist, properties, lower=True, debug_lookup=False, num_sugg=config.NUM_SUGG_PROPS, add_alias_terms_to_result=False, property_aliases=None):
-    """ @param term: a term from the user (term), the instances of the respective entity (instance_properties)
-               term should be unicode (preferred) or utf-8 string
-        @param w2v_plist: the list of properties in the model (w2v_plist), our properties dict
-        @param instance_properties: a list of properities for the instance -- if left empty then we match against ALL properties
-               instance_properties can be a list of strings or list of unicode -- both works
-        @param properties: just for debugging, not needed in the production version 
-        @param add_alias_terms_to_result: additionally to the word embedding-based results, also matches in the aliases (Wikidata: also known as) into the matches
-        @param property_aliases: mapping of properties to list of its aliases, needed when add_alias_terms_to_result == True
-
-        returns: the properties most similar to the input term
-    """
-    sims, words = [], []
+def preprocess_query(term, lower, model):
+    words = []
 
     # the term should be unicode, if not, try to decode it (assuming it is utf-8)
     if type(term) == type(""):
@@ -274,7 +304,28 @@ def get_closest_properties(term, model, instance_properties, w2v_plist, properti
     except:
         print "encoding error on input term"
 
-    alias_sims = []
+    return words
+
+
+
+# find all property ids:
+def get_closest_properties(term, model, instance_properties, w2v_plist, properties, lower=True, debug_lookup=False, num_sugg=config.NUM_SUGG_PROPS, add_alias_terms_to_result=False, property_aliases=None):
+    """ @param term: a term from the user (term), the instances of the respective entity (instance_properties)
+               term should be unicode (preferred) or utf-8 string
+        @param w2v_plist: the list of properties in the model (w2v_plist), our properties dict
+        @param instance_properties: a list of properities for the instance -- if left empty then we match against ALL properties
+               instance_properties can be a list of strings or list of unicode -- both works
+        @param properties: just for debugging, not needed in the production version 
+        @param add_alias_terms_to_result: additionally to the word embedding-based results, also matches in the aliases (Wikidata: also known as) into the matches
+        @param property_aliases: mapping of properties to list of its aliases, needed when add_alias_terms_to_result == True
+
+        returns: the properties most similar to the input term
+    """
+
+    words = preprocess_query(term, lower, model)
+
+
+    sims, alias_sims = [], []
     if add_alias_terms_to_result:
         alias_sims = match_in_aliases(term, instance_properties, property_aliases)
 
@@ -304,8 +355,108 @@ def get_closest_properties(term, model, instance_properties, w2v_plist, properti
         for i in sorted_sims[:num_sugg]:
             print "\t", properties[i[0]]['label'], i[1]
 
+    return alias_sims + sorted_sims[:num_sugg]
+
+
+def get_closest_entities(term, model, lower=True, num_sugg=config.NUM_SUGG_PROPS, add_alias_terms_to_result=False, entity_aliases=None):
+    """ @param term: a term from the user (term), the instances of the respective entity (instance_properties)
+               term should be unicode (preferred) or utf-8 string
+        @param properties: just for debugging, not needed in the production version 
+        @param add_alias_terms_to_result: additionally to the word embedding-based results, also matches in the aliases (Wikidata: also known as) into the matches
+        @param property_aliases: mapping of properties to list of its aliases, needed when add_alias_terms_to_result == True
+
+        returns: the properties most similar to the input term
+    """
+
+    words = preprocess_query(term, lower, model)
+
+
+    sims, alias_sims = [], []
+    if add_alias_terms_to_result:
+        alias_sims = match_in_entity_aliases(term, entity_aliases, lower=lower)
+
+    if len(words) == 0:
+        print "WARN: Term -- %s -- (or it's parts) not found in the model!. We have no suggestions from word embeddings!" % (term.encode("utf-8"),)
+        return alias_sims 
+
+
+    # get closest results from the model 
+    sims = model.most_similar(positive=words, topn=num_sugg*2)
+    print "Before filtering", sims
+    
+    # filter non-entities
+    sims = [s for s in sims if s[0].startswith('Q') and s[0][1:].isdigit()]
+    sims = sims[:num_sugg]
+    print "Alter filtering", sims
+    sorted_sims = sorted(sims,key=itemgetter(1))
+    sorted_sims.reverse()
 
     return alias_sims + sorted_sims[:num_sugg]
+
+
+def get_classic_search_res(alias, entities, lower=True, num_sugg=100, add_alias_terms_to_result=False, classic_mode=''):
+
+
+    if lower:
+        alias = alias.lower()
+
+
+    if classic_mode == 'complex':
+        # split into words and remove stopwords
+        alias_words = [ w for w in alias.split(" ") if w not in stop]
+        print "\n\nalias words", alias_words
+    else:
+        alias_words = [alias]
+
+
+    res = {}    
+    for alias_word in alias_words:
+        p = re.compile( "(\W|^)%s(\W|$)" % (alias_word,) )
+
+        for e_id, e_vals in entities.iteritems():
+            
+            if p.search( e_vals['label'] ):
+                _add_to_res(res, e_id, 0.8)
+                try:
+                    print "Found in label", e_vals['label']
+                except:
+                    print "Found in label -- encoding error"
+
+            if p.search( e_vals['description'] ):
+                _add_to_res(res, e_id, 0.2) 
+                try:
+                    print "Found in description", e_vals['description']
+                except:
+                    print "Found in description -- encoding error"
+
+    found_ents = []
+    for k,v in res.iteritems():
+        found_ents.append( (k, v) )
+
+    sorted_ents = sorted(found_ents,key=itemgetter(1))
+    sorted_ents.reverse()
+
+    ## debugging:
+    print "\n\nWe found:", sorted_ents
+    print "Input data: Alias (%s)" % (alias,)
+    
+    return sorted_ents
+        
+    
+        
+
+def _add_to_res(res, e_id, val):
+    num_id = int(e_id[1:])
+    discount = float(num_id) / 10000000 # normalize discount to a value 0.0 to 0.1 (dep on id of entity)
+    val = val-discount
+    if res.has_key(e_id):
+        res[e_id] += val
+    else:
+        res[e_id] = val
+
+
+
+
 
 def match_in_aliases(term, instance_properties, property_aliases):
     """
@@ -321,7 +472,7 @@ def match_in_aliases(term, instance_properties, property_aliases):
     ## list of matches in alias strings of the properties
     alias_sims = []
 
-    
+   
     for ip in instance_properties:
         if property_aliases.has_key(ip): 
             aliases = property_aliases[ip]
@@ -333,6 +484,34 @@ def match_in_aliases(term, instance_properties, property_aliases):
             if found: 
                 alias_sims.append( (ip,1.0) )
                 
+    return alias_sims
+
+def match_in_entity_aliases(term, entity_aliases,lower=True, debug=False):
+    """
+        -- for all parameters see in the outer function: get_closest_properties
+        @param term 
+    """
+
+
+    ## list of matches in alias strings of the properties
+    entities = []
+    if lower: term=term.lower()
+    if debug: print "\n\n\n\nsearch term", term
+
+    for alias in entity_aliases.keys():
+        found = False
+
+        if lower: alias=alias.lower()
+
+        if alias.find(term)>=0:
+            found = True
+        if found:
+            if debug: print alias, entity_aliases[alias]
+            entities.append( entity_aliases[alias][0][1] )
+
+
+    entities = list(set(entities)) # make results unique
+    alias_sims = [(e,1.0) for e in entities]
     return alias_sims
 
 
@@ -362,13 +541,38 @@ def sample_output_properties(properties):
     print "\tLabel:\t\t", properties['P26']['label']
     print "\tAliases:\t", properties['P26']['aliases']
 
+def sample_output_entities(entities):
+    """
+        unimportant debugging/testing function
+    """
+    print "TEST:"
+    print "\tLabel:\t\t", entities['Q22']['label']
+    print "\tAliases:\t", entities['Q22']['aliases']
+    print "\tdescription:\t", entities['Q22']['description']
+    print "\tLabelDescAliasesWords:\t", entities['Q22']['label_words']
+
+
+
+
 if __name__ == "__main__":
 
     from config import PROPS_FILE
     properties = get_properties_by_id(PROPS_FILE)
-    property_aliases = create_property_aliases(properties)
 
+
+    property_aliases1 = create_property_aliases(properties, skip_ids=True)
+    property_aliases2 = create_property_aliases(properties, skip_ids=False)
+
+    from pprint import pprint; pprint(property_aliases1)
+
+
+
+
+    print "*****Some statistics *****"
     print "Number of properties:", len( properties ) 
+    print "Number of properties with aliases without IDs:", len( property_aliases1) 
+    print "Number of properties with aliases incl IDs", len( property_aliases2) 
+
 
     num_alias_all      = len(create_alias_label_map(properties, skip_ids=False))
     num_alias_skip_ids = len(create_alias_label_map(properties, skip_ids=True))

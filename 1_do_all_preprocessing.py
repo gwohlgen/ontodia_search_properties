@@ -7,8 +7,12 @@ from pprint import pprint
     if you use a new model -- edit the config file
 """
 
+#new: you can called it with a mode (properties (default) or entities)
+
+
 print "\n\n***** Step 0: CURRENTY YOU ARE EXPECTED TO TRIM THE MODEL TO THE DESIRED SIZE BEFORE STARTING"
 print "Model being build for", config.MODELFN
+
 
 print "\n\n***** Step 1: create aliases -- labels mapping and write to a file -----"
 properties = helpers.get_properties_by_id(config.PROPS_FILE)
@@ -35,5 +39,6 @@ helpers.create_average_property_vectors()
 print """\n\n***** Step 2d .. Concat the main model with the %s file and update the number of vectors in the file metadata!!!
 """ % (config.EMB_PROP_LABELS,)
 helpers.create_concat_model()
+
 
 

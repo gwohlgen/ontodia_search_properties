@@ -30,6 +30,7 @@ if __name__ == "__main__":
     start_time = timeit.default_timer()
     # code you want to evaluate
     model, plist, properties = inititalize_get_similar_properties()
+    model.init_sims(replace=True)
     print "Time to load the model", timeit.default_timer() - start_time
 
 
