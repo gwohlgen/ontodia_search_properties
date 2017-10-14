@@ -21,13 +21,22 @@ To set application port, different from 8888, run script with env variable PORT:
 env PORT=8889 python ./web_service.py
 ```
 
-To set arbitrary path to model file, run script with env variable MODEL_FILE:
+To set arbitrary path to properties model file, run script with env variable MODEL_FILE:
 
 ```bash
 env MODEL_FILE=./models/fasttext.wiki.en.vec.small.300000.lines-Desc.True__w-prop-ids.FINAL.vec python ./web_service.py
 ```
 
+To set arbitrary path to entities model file, run script with env variable ENTITIES_MODEL_FILE:
+
+```bash
+env ENTITIES_MODEL_FILE=../entities.model python ./web_service.py
+```
+
 ### HTTP API reference
+
+#### 1. Get properties, similar to passed term
+
 Path: /
 
 Method: POST
@@ -39,6 +48,32 @@ Body:
     "threshold": 0.7, // optional
     "term": "hand play with",
     "instance_properties": ["P11", "P12"]
+}
+```
+Response:
+```js
+{
+  "status": "success",
+  "data": [
+    {
+      "id": "P741",
+      "value": 0.86217025908427947
+    }
+  ]
+}
+```
+
+#### 2. Get entities, similar to passed term
+
+Path: /entities
+
+Method: POST
+
+Body:
+```js
+{
+    "limit": 10, // optional, default is 100
+    "term": "stadium"
 }
 ```
 Response:

@@ -79,5 +79,9 @@ if 'MODEL_FILE' in os.environ:
 else:
     EMB_OUR_MODEL  = MODELPATH + MODELFN + "-Desc." + str(USE_DESCR_IN_PROP_VECTORS) + "__w-prop-ids.FINAL.vec"
 
-EMB_OUR_ENT_MODEL  = MODELPATH + MODELFN + "-Desc." + str(USE_DESCR_IN_PROP_VECTORS) + "__w-prop-ids.FINAL.ENTITIES.vec"
+if 'ENTITIES_MODEL_FILE' in os.environ:
+    EMB_OUR_ENT_MODEL = os.environ['ENTITIES_MODEL_FILE']
+else:
+    EMB_OUR_ENT_MODEL = MODELPATH + MODELFN + "-Desc." + str(USE_DESCR_IN_PROP_VECTORS) + "__w-prop-ids.FINAL.ENTITIES.vec"
+
 DEBUG=False
