@@ -72,7 +72,7 @@ Method: POST
 Body:
 ```js
 {
-    "limit": 10, // optional, default is 100
+    "limit": 5, // optional, default is 100
     "term": "stadium"
 }
 ```
@@ -82,8 +82,24 @@ Response:
   "status": "success",
   "data": [
     {
-      "id": "P741",
-      "value": 0.86217025908427947
+      "id": "Q379306",
+      "value": 1.0
+    },
+    {
+      "id": "Q945548",
+      "value": 1.0
+    },
+    {
+      "id": "Q673598",
+      "value": 1.0
+    },
+    {
+      "id": "Q285983",
+      "value": 1.0
+    },
+    {
+      "id": "Q285074",
+      "value": 1.0
     }
   ]
 }
